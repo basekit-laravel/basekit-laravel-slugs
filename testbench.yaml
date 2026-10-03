@@ -1,0 +1,2 @@
+providers:
+  - BasekitLaravel\BasekitLaravelSlugs\BasekitLaravelSlugsServiceProvider

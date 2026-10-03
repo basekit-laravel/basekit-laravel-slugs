@@ -1,0 +1,82 @@
+{
+  "name": "basekit-laravel/basekit-laravel-slugs",
+  "description": "Slugs and localized slugs for Basekit Laravel — deterministic slug generation, normalization and validation plus a reusable Eloquent trait that any model (Page, Post, Product, ...) can opt into.",
+  "keywords": [
+    "laravel",
+    "basekit",
+    "slug",
+    "slugs",
+    "localized",
+    "eloquent"
+  ],
+  "homepage": "https://github.com/basekit-laravel/basekit-laravel-slugs",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Gergő Tar",
+      "email": "dev@gergotar.com",
+      "role": "Developer"
+    }
+  ],
+  "require": {
+    "php": "^8.4|^8.5",
+    "illuminate/contracts": "^13",
+    "illuminate/database": "^13",
+    "illuminate/support": "^13"
+  },
+  "require-dev": {
+    "fakerphp/faker": "^1.24",
+    "larastan/larastan": "^3.12",
+    "laravel/pint": "^1.32",
+    "mockery/mockery": "^1.6",
+    "nunomaduro/collision": "^8.9",
+    "orchestra/testbench": "^11.3",
+    "pestphp/pest": "^5.3",
+    "pestphp/pest-plugin-arch": "^5.0",
+    "pestphp/pest-plugin-laravel": "^5.0",
+    "phpstan/extension-installer": "^1.4",
+    "phpstan/phpstan-deprecation-rules": "^2.0",
+    "rector/rector": "^2.6"
+  },
+  "autoload": {
+    "psr-4": {
+      "BasekitLaravel\\BasekitLaravelSlugs\\": "src/",
+      "BasekitLaravel\\BasekitLaravelSlugs\\Database\\Factories\\": "database/factories/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "BasekitLaravel\\BasekitLaravelSlugs\\Tests\\": "tests/"
+    }
+  },
+  "scripts": {
+    "test": "vendor/bin/pest",
+    "test-coverage": "vendor/bin/pest --coverage",
+    "refactor": "vendor/bin/rector process",
+    "refactor:check": "vendor/bin/rector process src --dry-run",
+    "lint": "vendor/bin/pint",
+    "lint:check": "vendor/bin/pint --test",
+    "analyse": "vendor/bin/phpstan analyse",
+    "quality": [
+      "@lint:check",
+      "@analyse",
+      "@test"
+    ]
+  },
+  "config": {
+    "sort-packages": true,
+    "allow-plugins": {
+      "pestphp/pest-plugin": true,
+      "phpstan/extension-installer": true
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "BasekitLaravel\\BasekitLaravelSlugs\\BasekitLaravelSlugsServiceProvider"
+      ]
+    }
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
+}

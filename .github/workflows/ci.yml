@@ -1,0 +1,231 @@
+name: CI
+
+on:
+  pull_request:
+    paths-ignore:
+      - CHANGELOG.md
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - CHANGELOG.md
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Code style and static analysis
+    if: ${{ github.event_name != 'push' || !contains(github.event.head_commit.message, 'release-please--branches--') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          coverage: none
+          tools: composer:v2
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.json') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Check code style
+        run: composer lint:check
+
+      - name: Run static analysis
+        run: composer analyse
+
+  tests:
+    name: Tests (PHP ${{ matrix.php }}, SQLite)
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, intl, pdo_sqlite
+          coverage: none
+          tools: composer:v2
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.json') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Run test suite
+        run: composer test
+
+  tests-mysql:
+    name: Tests (MySQL)
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: slugs
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --host=127.0.0.1 --user=root --password=password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      TEST_DB_CONNECTION: mysql
+      TEST_DB_HOST: 127.0.0.1
+      TEST_DB_PORT: '3306'
+      TEST_DB_DATABASE: slugs
+      TEST_DB_USERNAME: root
+      TEST_DB_PASSWORD: password
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: mbstring, intl, pdo_mysql
+          coverage: none
+          tools: composer:v2
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.json') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      # The image reports healthy while its temporary bootstrap server is
+      # still running, so wait for the real server to accept the app database.
+      - name: Wait for MySQL
+        run: |
+          php -r '
+          for ($i = 0; $i < 60; $i++) {
+              try {
+                  new PDO("mysql:host=".getenv("TEST_DB_HOST").";port=".getenv("TEST_DB_PORT").";dbname=".getenv("TEST_DB_DATABASE"), getenv("TEST_DB_USERNAME"), getenv("TEST_DB_PASSWORD"));
+                  echo "MySQL ready\n";
+                  exit(0);
+              } catch (Throwable $e) {
+                  sleep(2);
+              }
+          }
+          fwrite(STDERR, "MySQL never became ready\n");
+          exit(1);'
+
+      - name: Run test suite
+        run: composer test
+
+  tests-pgsql:
+    name: Tests (PostgreSQL)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: slugs
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready --host=127.0.0.1 --username=postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      TEST_DB_CONNECTION: pgsql
+      TEST_DB_HOST: 127.0.0.1
+      TEST_DB_PORT: '5432'
+      TEST_DB_DATABASE: slugs
+      TEST_DB_USERNAME: postgres
+      TEST_DB_PASSWORD: password
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: mbstring, intl, pdo_pgsql
+          coverage: none
+          tools: composer:v2
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.json') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Wait for PostgreSQL
+        run: |
+          php -r '
+          for ($i = 0; $i < 60; $i++) {
+              try {
+                  new PDO("pgsql:host=".getenv("TEST_DB_HOST").";port=".getenv("TEST_DB_PORT").";dbname=".getenv("TEST_DB_DATABASE"), getenv("TEST_DB_USERNAME"), getenv("TEST_DB_PASSWORD"));
+                  echo "PostgreSQL ready\n";
+                  exit(0);
+              } catch (Throwable $e) {
+                  sleep(2);
+              }
+          }
+          fwrite(STDERR, "PostgreSQL never became ready\n");
+          exit(1);'
+
+      - name: Run test suite
+        run: composer test

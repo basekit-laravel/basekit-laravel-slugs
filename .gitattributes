@@ -1,0 +1,19 @@
+# Keep the distributed package small: development-only files are not needed by
+# consumers who install it from Packagist or Composer.
+/.github            export-ignore
+/.opencode           export-ignore
+/tests               export-ignore
+/.gitattributes      export-ignore
+/.gitignore          export-ignore
+/AGENTS.md           export-ignore
+/CLAUDE.md           export-ignore
+/phpstan.neon.dist   export-ignore
+/phpunit.xml         export-ignore
+/rector.php          export-ignore
+/testbench.yaml      export-ignore
+
+# Never rewrite line endings or encoding in consumers' checkouts.
+* text=auto eol=lf
+*.php text eol=lf
+*.md  text eol=lf
+*.yml text eol=lf

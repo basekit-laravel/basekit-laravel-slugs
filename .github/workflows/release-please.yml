@@ -1,0 +1,59 @@
+name: Release Please
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run Release Please
+        id: release
+        uses: googleapis/release-please-action@v5
+        with:
+          release-type: php
+          target-branch: ${{ github.ref_name }}
+
+      # Keeps a long-lived develop branch in step with master after a release.
+      # Repositories that ship straight from master have no develop branch, and
+      # checking out a missing ref would fail the job after the release is
+      # already tagged, so detect it first.
+      - name: Detect develop branch
+        id: develop
+        if: ${{ steps.release.outputs.release_created }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh api "repos/${GITHUB_REPOSITORY}/branches/develop" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "No develop branch; skipping the master back-merge."
+          fi
+
+      - name: Checkout develop
+        if: ${{ steps.release.outputs.release_created && steps.develop.outputs.exists == 'true' }}
+        uses: actions/checkout@v5
+        with:
+          ref: develop
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        if: ${{ steps.release.outputs.release_created && steps.develop.outputs.exists == 'true' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge master into develop and push
+        if: ${{ steps.release.outputs.release_created && steps.develop.outputs.exists == 'true' }}
+        run: |
+          git merge origin/master --no-edit
+          git push origin develop
